@@ -1,8 +1,11 @@
 import { randomBytes, scryptSync, timingSafeEqual, createHmac } from "crypto";
 
-// A missing secret must never fall back to a known value in production: this repo
-// is public, so a hardcoded default would let anyone forge a session cookie.
-function resolveSessionSecret(): string {
+// Resolved per call, not at module load: the secret is only needed to serve a
+// request, and throwing at import time would fail `next build` (which evaluates
+// module scope while collecting route data) even though nothing is being signed.
+// A missing secret must never fall back to a known value in production — this
+// repo is public, so a hardcoded default would let anyone forge a session cookie.
+function sessionSecret(): string {
   const fromEnv = process.env.SESSION_SECRET;
   if (fromEnv && fromEnv.length >= 16) return fromEnv;
   if (process.env.NODE_ENV === "production") {
@@ -11,7 +14,6 @@ function resolveSessionSecret(): string {
   return "smartlib-local-dev-only-secret";
 }
 
-const SESSION_SECRET = resolveSessionSecret();
 const SESSION_COOKIE = "smartlib_session";
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
@@ -36,7 +38,7 @@ interface SessionPayload {
 }
 
 function sign(data: string): string {
-  return createHmac("sha256", SESSION_SECRET).update(data).digest("hex");
+  return createHmac("sha256", sessionSecret()).update(data).digest("hex");
 }
 
 export function createSessionToken(userId: string): string {
