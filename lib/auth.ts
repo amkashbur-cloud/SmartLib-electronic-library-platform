@@ -1,6 +1,17 @@
 import { randomBytes, scryptSync, timingSafeEqual, createHmac } from "crypto";
 
-const SESSION_SECRET = process.env.SESSION_SECRET || "smartlib-dev-secret-change-me";
+// A missing secret must never fall back to a known value in production: this repo
+// is public, so a hardcoded default would let anyone forge a session cookie.
+function resolveSessionSecret(): string {
+  const fromEnv = process.env.SESSION_SECRET;
+  if (fromEnv && fromEnv.length >= 16) return fromEnv;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("SESSION_SECRET must be set to at least 16 characters in production.");
+  }
+  return "smartlib-local-dev-only-secret";
+}
+
+const SESSION_SECRET = resolveSessionSecret();
 const SESSION_COOKIE = "smartlib_session";
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
